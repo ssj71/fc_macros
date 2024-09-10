@@ -1,0 +1,113 @@
+import Draft
+import random
+import string
+from BOPTools import BOPFeatures
+
+sentence = "And when the broken-hearted people\n living in the world agree\n there will be an answer:\n Let it Be."
+
+fntsizes = [20, ] # individual word sizes, uses last number if fewer values than words
+depth = 5
+font = "/usr/share/fonts/X11/Type1/c059016l.pfb" #typewriter like
+#font = "/usr/share/fonts/truetype/malayalam/Uroob-Regular.ttf" #poggers
+#font = "/home/spencer/.local/share/fonts/Bilbo-Regular.otf"
+#font = "/usr/share/fonts/opentype/malayalam/Chilanka-Regular.otf"
+
+vertdev = 4 # default, percent of fontsize 
+rotdev = 2  # default, degrees
+
+bp = BOPFeatures.BOPFeatures(App.activeDocument())
+typehead = 0
+#TODO: sanitize punctuation for legit FC names
+fusioncount = 0
+wordtypehead = 0
+maxlen = 0
+line = 0
+for i,word in enumerate(sentence.split(' ')):
+    names = []
+    prevObj = []
+    typehead = 0
+    fontsize = fntsizes[i] if i < len(fntsizes) else fntsizes[-1]
+    linebreak = False if not '\n' in word else True
+    word = word.replace('\n','')
+    for j,l in enumerate(word):
+        ss=Draft.make_shapestring(String=l, FontFile=font, Size=fontsize, Tracking=0.0)
+        offset = ss.Shape.BoundBox.XLength
+        ss.Support=None
+        ss.Visibility = False
+        Draft.autogroup(ss)
+
+        if l in string.punctuation:
+            l = ''
+        name = '%s_%s_%i'%(word.translate(str.maketrans(dict.fromkeys(string.punctuation))),l,j)
+        print(name)
+        names.append(name)
+        FreeCAD.ActiveDocument.addObject('Part::Extrusion',name)
+        e = FreeCAD.ActiveDocument.getObject(name)
+        e.Base = ss #App.getDocument('Unnamed').getObject('ShapeString')
+        e.DirMode = "Normal"
+        e.DirLink = None
+        e.LengthFwd = depth+5
+        e.LengthRev = 0.000000000000000
+        e.Solid = False
+        e.Reversed = False
+        e.Symmetric = False
+        e.TaperAngle = 0.000000000000000
+        e.TaperAngleRev = 0.000000000000000
+
+        plm=FreeCAD.Placement()
+        plm.Base = FreeCAD.Vector(typehead, random.gauss(0,vertdev*fontsize/100), random.gauss(0,fontsize/50.0))
+        plm.Rotation = FreeCAD.Rotation(FreeCAD.Vector(random.gauss(0,fontsize/200.0), random.gauss(0,fontsize/150.0), random.gauss(0,depth/100)), random.gauss(0,rotdev))
+        e.Placement=plm
+        App.ActiveDocument.recompute()
+
+        #scoot the letter so there's some intersection
+        if prevObj:
+            retry = 0
+            common = bp.make_multi_common(names[-2:])
+            while common.Shape.BoundBox.XLength < fontsize/25 and retry < fontsize/2:
+                typehead -= fontsize/25.0
+                e.Placement.Base.x = typehead
+                App.ActiveDocument.recompute()
+                retry += 1
+            FreeCAD.ActiveDocument.removeObject("Common")
+        prevObj = e
+        typehead += offset
+    
+    if len(names) > 1:
+        bp.make_multi_fuse(names)
+        if fusioncount:
+            f = FreeCAD.ActiveDocument.getObject('Fusion%03i'%(fusioncount))
+        else:
+            f = FreeCAD.ActiveDocument.getObject('Fusion')
+        f.Label = word
+        f.Placement.Base.x = wordtypehead
+        f.Placement.Base.y = -max(fntsizes)*line
+        fusioncount += 1
+    else:
+        App.ActiveDocument.getObject(names[0]).Placement.Base.x = wordtypehead
+        App.ActiveDocument.getObject(names[0]).Label = word
+    wordtypehead += typehead
+    if wordtypehead > maxlen:
+        maxlen = wordtypehead
+    if linebreak:
+        print("on break")
+        line += 1
+        wordtypehead = 0
+    
+# now make a flat back
+words = list(set(sentence.split()))
+o = []
+for word in words:
+    o +=  [n.Name for n in App.ActiveDocument.getObjectsByLabel(word)]
+w = bp.make_multi_fuse(o)
+App.ActiveDocument.addObject("Part::Box","Box")
+b = App.ActiveDocument.getObject("Box")
+b.Length = maxlen + 10
+b.Width = (line+2)*max(fntsizes)
+b.Placement.Base.x -= 5
+b.Placement.Base.y -= max(fntsizes)/4 + max(fntsizes)*line
+b.Placement.Base.z -= 5
+
+bp.make_cut(["Fusion%03i"%(fusioncount), "Box", ])
+App.ActiveDocument.recompute()
+
