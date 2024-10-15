@@ -1,0 +1,88 @@
+import Draft
+import random
+import string
+import Part
+from BOPTools import BOPFeatures
+import Mesh, MeshPart
+import math as m
+
+arcDiameters = [30, 50, 70] # mm, size of the "circle" the arc is from
+arcAngles = [90, 180, 270] # degrees, how far around the "circle" the arc goes
+arcWidths = [3, 5, 7] # mm, distance across the arc (outer radius - inner radius)
+thicknesses = [3, 5, 7] # mm, how tall the print is
+holderInnerDiameter = 7 # mm, hole size for holder
+holderOuterDiameter =  10 # mm, outer circle size for holder
+savepath = u"/home/spencer/Pictures/3dprints/science_fair_springs/"
+def makeSpring(arcDiameter, arcAngle, arcWidth, thickness, holderInnerDiameter, holderOuterDiameter):
+
+    #some calculations
+    theta = arcAngle*m.pi/180 #convert to radians
+    d = m.sqrt((holderOuterDiameter/2)**2 - (arcWidth/2)**2) #this is the distance from the center of the holder to the cord spanning where the arc ID and OD intersect the holder edge
+    arcCenterX = d*m.cos(theta/2) + arcDiameter/2*m.sin(theta/2)
+    arcCenterY = d*m.sin(theta/2) - arcDiameter/2*m.cos(theta/2)
+    arcRotate = (180-arcAngle)/2
+
+    #make the arc
+    o = App.ActiveDocument.addObject("Part::Cylinder","arccyl")
+    o.Radius = (arcDiameter+arcWidth)/2
+    o.Height = thickness
+    o.Angle = arcAngle
+
+    #make a cutout for the inner part of the cylinder
+    c = App.ActiveDocument.addObject("Part::Cylinder","cutter")
+    c.Radius = (arcDiameter-arcWidth)/2
+    c.Height = thickness
+    c.Angle = arcAngle
+
+    #make the cut
+    bp = BOPFeatures.BOPFeatures(App.activeDocument())
+    a = bp.make_cut([o.Name, c.Name, ])
+    a.Label = "arc"
+    a.Placement = App.Placement(App.Vector(arcCenterX, arcCenterY,0), App.Rotation(App.Vector(0,0,1), arcRotate))
+
+    #now make the holders
+    o = App.ActiveDocument.addObject("Part::Cylinder","h1cy")
+    o.Radius = (holderOuterDiameter)/2
+    o.Height = thickness
+
+    #make drill for the inner part of the tube
+    c = App.ActiveDocument.addObject("Part::Cylinder","h1drill")
+    c.Radius = (holderInnerDiameter)/2
+    c.Height = thickness
+
+    #make the cut
+    #h1 = bp.make_cut(["h1cy", "h1drill", ])
+    h1 = bp.make_cut([o.Name, c.Name, ])
+    h1.Label = "holder1"
+
+    #2nd holder
+    o = App.ActiveDocument.addObject("Part::Cylinder","h2cy")
+    o.Radius = (holderOuterDiameter)/2
+    o.Height = thickness
+
+    #make drill for the inner part of the tube
+    c = App.ActiveDocument.addObject("Part::Cylinder","h2drill")
+    c.Radius = (holderInnerDiameter)/2
+    c.Height = thickness
+
+    #make the cut
+    #h2 = bp.make_cut(["h2cy", "h2drill", ])
+    h2 = bp.make_cut([o.Name, c.Name, ])
+    h2.Label = "holder2"
+    h2.Placement = App.Placement(App.Vector(2*arcCenterX, 0, 0), App.Rotation(App.Vector(0,0,1), 0))
+
+    #now combine
+    s = bp.make_multi_fuse([a.Name, h1.Name, h2.Name])
+    s.Label = f"test_spring_w{arcWidth}_h{thickness}_a{arcAngle}_d{arcDiameter}"
+
+    #export an stl
+    Mesh.export([s,], savepath+s.Label+u".stl")
+
+makeSpring(30,90,3,3,7,10)
+
+for arcDiameter in arcDiameters:
+    for arcAngle in arcAngles:
+        for arcWidth in arcWidths:
+            for thickness in thicknesses:
+                makeSpring(arcDiameter, arcAngle, arcWidth, thickness, holderInnerDiameter, holderOuterDiameter)
+                pass
