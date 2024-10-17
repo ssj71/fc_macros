@@ -51,7 +51,6 @@ def makeSpring(arcDiameter, arcAngle, arcWidth, thickness, holderInnerDiameter, 
     c.Height = thickness
 
     #make the cut
-    #h1 = bp.make_cut(["h1cy", "h1drill", ])
     h1 = bp.make_cut([o.Name, c.Name, ])
     h1.Label = "holder1"
 
@@ -66,7 +65,6 @@ def makeSpring(arcDiameter, arcAngle, arcWidth, thickness, holderInnerDiameter, 
     c.Height = thickness
 
     #make the cut
-    #h2 = bp.make_cut(["h2cy", "h2drill", ])
     h2 = bp.make_cut([o.Name, c.Name, ])
     h2.Label = "holder2"
     h2.Placement = App.Placement(App.Vector(2*arcCenterX, 0, 0), App.Rotation(App.Vector(0,0,1), 0))
@@ -76,9 +74,16 @@ def makeSpring(arcDiameter, arcAngle, arcWidth, thickness, holderInnerDiameter, 
     s.Label = f"test_spring_w{arcWidth}_h{thickness}_a{arcAngle}_d{arcDiameter}"
 
     #export an stl
-    Mesh.export([s,], savepath+s.Label+u".stl")
+    App.ActiveDocument.recompute()
+    mesh = App.ActiveDocument.addObject("Mesh::Feature","Mesh")
+    mesh.Mesh = MeshPart.meshFromShape(Shape=s.Shape)
+    mesh.Label = s.Label
+    mesh.ViewObject.DisplayMode = "Flat Lines"
+    mesh.Mesh.write(savepath+s.Label+".stl")
+    App.ActiveDocument.removeObject(mesh.Name)
+    del mesh#, shape
 
-makeSpring(30,90,3,3,7,10)
+#makeSpring(30,90,3,3,7,10)
 
 for arcDiameter in arcDiameters:
     for arcAngle in arcAngles:
