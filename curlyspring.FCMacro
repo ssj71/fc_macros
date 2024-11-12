@@ -1,0 +1,134 @@
+import Draft
+import random
+import string
+import Part
+from BOPTools import BOPFeatures
+import Mesh, MeshPart
+import math as m
+
+arcDiameter = 30 # mm, size of the "circle" each arc is from
+arcAngle = 270 # degrees, how far around the "circle" the arc goes
+arcWidth = 3 # mm, distance across the arc (outer radius - inner radius)
+arcCount = 4 # number of arcs
+thickness = 10 # mm, how tall the print is
+
+#this creates a spring made of alternating arcs
+#some calculations
+theta = (360 - arcAngle)*m.pi/180 #convert to radians
+d = arcDiameter + arcWidth
+offsetX = d*m.cos(theta/2)
+offsetY = d*m.sin(theta/2)
+arcRotate = 180-arcAngle/2
+arclist = []
+
+#make the arc
+o = App.ActiveDocument.addObject("Part::Cylinder","arccyl")
+o.Radius = (arcDiameter)/2 + arcWidth
+o.Height = thickness
+o.Angle = 90 + arcAngle/2
+
+#make a cutout for the inner part of the cylinder
+c = App.ActiveDocument.addObject("Part::Cylinder","cutter")
+c.Radius = (arcDiameter)/2
+c.Height = thickness
+c.Angle = 90 + arcAngle/2
+
+#make the cut
+bp = BOPFeatures.BOPFeatures(App.activeDocument())
+a = bp.make_cut([o.Name, c.Name, ])
+a.Label = "arc"
+a.Placement = App.Placement(App.Vector(0,0,0), App.Rotation(App.Vector(0,0,1), arcRotate))
+
+arclist.append(a.Name)
+
+for i in range(int((arcCount-1)/2)):
+    print(i)
+    #make the arc
+    o = App.ActiveDocument.addObject("Part::Cylinder","arccyl")
+    o.Radius = (arcDiameter)/2 + arcWidth
+    o.Height = thickness
+    o.Angle = arcAngle
+
+    #make a cutout for the inner part of the cylinder
+    c = App.ActiveDocument.addObject("Part::Cylinder","cutter")
+    c.Radius = (arcDiameter)/2
+    c.Height = thickness
+    c.Angle = arcAngle
+
+    #make the cut
+    bp = BOPFeatures.BOPFeatures(App.activeDocument())
+    a = bp.make_cut([o.Name, c.Name, ])
+    a.Label = "arc"
+    a.Placement = App.Placement(App.Vector(offsetX,(2*i+1)*offsetY,0), App.Rotation(App.Vector(0,0,1), 180+arcRotate))
+
+    arclist.append(a.Name)
+
+    if i < arcCount/2:
+        #make the arc
+        o = App.ActiveDocument.addObject("Part::Cylinder","arccyl")
+        o.Radius = (arcDiameter)/2 + arcWidth
+        o.Height = thickness
+        o.Angle = arcAngle
+
+        #make a cutout for the inner part of the cylinder
+        c = App.ActiveDocument.addObject("Part::Cylinder","cutter")
+        c.Radius = (arcDiameter)/2
+        c.Height = thickness
+        c.Angle = arcAngle
+
+        #make the cut
+        bp = BOPFeatures.BOPFeatures(App.activeDocument())
+        a = bp.make_cut([o.Name, c.Name, ])
+        a.Label = "arc"
+        a.Placement = App.Placement(App.Vector(0,(2*i+2)*offsetY,0), App.Rotation(App.Vector(0,0,1), arcRotate))
+
+        arclist.append(a.Name)
+
+if arcCount % 2:
+    #make the arc
+    o = App.ActiveDocument.addObject("Part::Cylinder","arccyl")
+    o.Radius = (arcDiameter)/2 + arcWidth
+    o.Height = thickness
+    o.Angle = 90 + arcAngle/2
+
+    #make a cutout for the inner part of the cylinder
+    c = App.ActiveDocument.addObject("Part::Cylinder","cutter")
+    c.Radius = (arcDiameter)/2
+    c.Height = thickness
+    c.Angle = 90 + arcAngle/2
+
+    #make the cut
+    bp = BOPFeatures.BOPFeatures(App.activeDocument())
+    a = bp.make_cut([o.Name, c.Name, ])
+    a.Label = "arc"
+    a.Placement = App.Placement(App.Vector(0,(arcCount-1)*offsetY,0), App.Rotation(App.Vector(0,0,1), 90))
+
+    arclist.append(a.Name)
+
+else:
+    #make the arc
+    o = App.ActiveDocument.addObject("Part::Cylinder","arccyl")
+    o.Radius = (arcDiameter)/2 + arcWidth
+    o.Height = thickness
+    o.Angle = 90 + arcAngle/2
+
+    #make a cutout for the inner part of the cylinder
+    c = App.ActiveDocument.addObject("Part::Cylinder","cutter")
+    c.Radius = (arcDiameter)/2
+    c.Height = thickness
+    c.Angle = 90 + arcAngle/2
+
+    #make the cut
+    bp = BOPFeatures.BOPFeatures(App.activeDocument())
+    a = bp.make_cut([o.Name, c.Name, ])
+    a.Label = "arc"
+    a.Placement = App.Placement(App.Vector(offsetX,(arcCount-1)*offsetY,0), App.Rotation(App.Vector(0,0,1), 180+arcRotate))
+
+    arclist.append(a.Name)
+
+    
+
+#now combine
+s = bp.make_multi_fuse(arclist)
+s.Label = "spring"
+
