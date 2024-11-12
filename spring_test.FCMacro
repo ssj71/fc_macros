@@ -10,15 +10,17 @@ arcDiameters = [30, 50, 70] # mm, size of the "circle" the arc is from
 arcAngles = [90, 180, 270] # degrees, how far around the "circle" the arc goes
 arcWidths = [3, 5, 7] # mm, distance across the arc (outer radius - inner radius)
 thicknesses = [3, 5, 7] # mm, how tall the print is
-holderInnerDiameter = 7 # mm, hole size for holder
-holderOuterDiameter =  10 # mm, outer circle size for holder
+holderInnerDiameter = 8 # mm, hole size for holder
+holderOuterDiameter =  11 # mm, outer circle size for holder
 savepath = u"/home/spencer/Pictures/3dprints/science_fair_springs/"
+
+#this creates a spring made of an arc with rings on both ends to hold it in an assembly
 def makeSpring(arcDiameter, arcAngle, arcWidth, thickness, holderInnerDiameter, holderOuterDiameter):
 
     #some calculations
     theta = arcAngle*m.pi/180 #convert to radians
     d = m.sqrt((holderOuterDiameter/2)**2 - (arcWidth/2)**2) #this is the distance from the center of the holder to the cord spanning where the arc ID and OD intersect the holder edge
-    arcCenterX = d*m.cos(theta/2) + arcDiameter/2*m.sin(theta/2)
+    arcCenterX = d*m.cos(theta/2) + arcDiameter/2*m.sin(theta/2) #the first holder is centered at 0,0
     arcCenterY = d*m.sin(theta/2) - arcDiameter/2*m.cos(theta/2)
     arcRotate = (180-arcAngle)/2
 
