@@ -1,0 +1,242 @@
+# -*- coding: utf-8 -*-
+
+# This script creates a dialog to generate a hollow box (a rectangular prism
+# with a hollowed-out center) in FreeCAD.
+# The user can define the outer dimensions, inner dimensions, and also
+# add fillets to the outer corners and a chamfer to the bottom edges.
+
+__title__   = "Box Maker"
+__author__  = "Gemini"
+__version__ = "1.2"
+__date__    = "2025-09-02"
+
+import FreeCAD as App
+import FreeCADGui as Gui
+import Part
+import math
+from PySide import QtGui, QtCore
+
+# Define the main dialog class
+class HollowBoxDialog(QtGui.QDialog):
+    def __init__(self):
+        super(HollowBoxDialog, self).__init__()
+        self.initUI()
+        
+    def initUI(self):
+        # Set up the window title and layout
+        self.setWindowTitle("Create Hollow Box")
+        self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+        self.mainLayout = QtGui.QGridLayout(self)
+        
+        # --- Outer Dimensions Group Box ---
+        outerGroupBox = QtGui.QGroupBox("Outer Dimensions", self)
+        outerLayout = QtGui.QGridLayout(outerGroupBox)
+        
+        # Outer Length
+        outerLengthLabel = QtGui.QLabel("Length:", self)
+        self.outerLengthEdit = QtGui.QLineEdit(self)
+        self.outerLengthEdit.setText("100.0")
+        outerLayout.addWidget(outerLengthLabel, 0, 0)
+        outerLayout.addWidget(self.outerLengthEdit, 0, 1)
+        
+        # Outer Width
+        outerWidthLabel = QtGui.QLabel("Width:", self)
+        self.outerWidthEdit = QtGui.QLineEdit(self)
+        self.outerWidthEdit.setText("50.0")
+        outerLayout.addWidget(outerWidthLabel, 1, 0)
+        outerLayout.addWidget(self.outerWidthEdit, 1, 1)
+        
+        # Outer Height
+        outerHeightLabel = QtGui.QLabel("Height:", self)
+        self.outerHeightEdit = QtGui.QLineEdit(self)
+        self.outerHeightEdit.setText("50.0")
+        outerLayout.addWidget(outerHeightLabel, 2, 0)
+        outerLayout.addWidget(self.outerHeightEdit, 2, 1)
+        
+        self.mainLayout.addWidget(outerGroupBox, 0, 0)
+        
+        # --- Inner Dimensions Group Box ---
+        innerGroupBox = QtGui.QGroupBox("Inner Dimensions", self)
+        innerLayout = QtGui.QGridLayout(innerGroupBox)
+        
+        # Inner Length
+        innerLengthLabel = QtGui.QLabel("Length:", self)
+        self.innerLengthEdit = QtGui.QLineEdit(self)
+        self.innerLengthEdit.setText("80.0")
+        innerLayout.addWidget(innerLengthLabel, 0, 0)
+        innerLayout.addWidget(self.innerLengthEdit, 0, 1)
+        
+        # Inner Width
+        innerWidthLabel = QtGui.QLabel("Width:", self)
+        self.innerWidthEdit = QtGui.QLineEdit(self)
+        self.innerWidthEdit.setText("40.0")
+        innerLayout.addWidget(innerWidthLabel, 1, 0)
+        innerWidthLabel.setToolTip("Must be less than Outer Width")
+        innerLayout.addWidget(self.innerWidthEdit, 1, 1)
+        
+        # Inner Height
+        innerHeightLabel = QtGui.QLabel("Height:", self)
+        self.innerHeightEdit = QtGui.QLineEdit(self)
+        self.innerHeightEdit.setText("40.0")
+        innerLayout.addWidget(innerHeightLabel, 2, 0)
+        innerHeightLabel.setToolTip("Must be less than Outer Height")
+        innerLayout.addWidget(self.innerHeightEdit, 2, 1)
+        
+        self.mainLayout.addWidget(innerGroupBox, 1, 0)
+        
+        # --- Fillet & Chamfer Options Group Box ---
+        optionsGroupBox = QtGui.QGroupBox("Fillet & Chamfer Options", self)
+        optionsLayout = QtGui.QGridLayout(optionsGroupBox)
+
+        # Fillet option
+        self.filletCheck = QtGui.QCheckBox("Fillet outer corners", self)
+        self.filletCheck.setChecked(True)
+        optionsLayout.addWidget(self.filletCheck, 0, 0)
+
+        filletRadiusLabel = QtGui.QLabel("Fillet Radius:", self)
+        self.filletRadiusEdit = QtGui.QLineEdit(self)
+        self.filletRadiusEdit.setText("5.0")
+        optionsLayout.addWidget(filletRadiusLabel, 0, 1)
+        optionsLayout.addWidget(self.filletRadiusEdit, 0, 2)
+        
+        # Chamfer option
+        self.chamferCheck = QtGui.QCheckBox("Chamfer bottom edge (30°)", self)
+        self.chamferCheck.setChecked(True)
+        optionsLayout.addWidget(self.chamferCheck, 1, 0)
+        
+        chamferSizeLabel = QtGui.QLabel("Chamfer Size:", self)
+        self.chamferSizeEdit = QtGui.QLineEdit(self)
+        self.chamferSizeEdit.setText("5.0")
+        optionsLayout.addWidget(chamferSizeLabel, 1, 1)
+        optionsLayout.addWidget(self.chamferSizeEdit, 1, 2)
+
+        self.mainLayout.addWidget(optionsGroupBox, 2, 0)
+        
+        # --- Buttons ---
+        buttonBox = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel, self)
+        self.mainLayout.addWidget(buttonBox, 3, 0)
+        buttonBox.accepted.connect(self.accept)
+        buttonBox.rejected.connect(self.reject)
+        
+    def getValues(self):
+        try:
+            # Parse the input values from the text fields
+            outer_l = float(self.outerLengthEdit.text())
+            outer_w = float(self.outerWidthEdit.text())
+            outer_h = float(self.outerHeightEdit.text())
+            inner_l = float(self.innerLengthEdit.text())
+            inner_w = float(self.innerWidthEdit.text())
+            inner_h = float(self.innerHeightEdit.text())
+            
+            fillet_enabled = self.filletCheck.isChecked()
+            chamfer_enabled = self.chamferCheck.isChecked()
+            
+            fillet_r = 0.0
+            chamfer_s = 0.0
+
+            if fillet_enabled:
+                fillet_r = float(self.filletRadiusEdit.text())
+            if chamfer_enabled:
+                chamfer_s = float(self.chamferSizeEdit.text())
+
+            # Basic input validation
+            if outer_l <= 0 or outer_w <= 0 or outer_h <= 0 or inner_l <= 0 or inner_w <= 0 or inner_h <= 0:
+                QtGui.QMessageBox.critical(self, "Input Error", "All dimensions must be greater than zero.")
+                return None
+            
+            if inner_l >= outer_l or inner_w >= outer_w or inner_h >= outer_h:
+                QtGui.QMessageBox.critical(self, "Input Error", "Inner dimensions must be smaller than outer dimensions.")
+                return None
+            
+            if fillet_enabled and fillet_r <= 0:
+                QtGui.QMessageBox.critical(self, "Input Error", "Fillet radius must be greater than zero.")
+                return None
+            
+            if chamfer_enabled and chamfer_s <= 0:
+                QtGui.QMessageBox.critical(self, "Input Error", "Chamfer size must be greater than zero.")
+                return None
+            
+            return outer_l, outer_w, outer_h, inner_l, inner_w, inner_h, fillet_enabled, fillet_r, chamfer_enabled, chamfer_s
+        except ValueError:
+            QtGui.QMessageBox.critical(self, "Input Error", "Please enter valid numbers for all dimensions.")
+            return None
+
+def run():
+    # Create an instance of the dialog
+    dialog = HollowBoxDialog()
+    
+    # Show the dialog and check if the user clicked OK
+    if dialog.exec_():
+        values = dialog.getValues()
+        if values:
+            outer_l, outer_w, outer_h, inner_l, inner_w, inner_h, fillet_enabled, fillet_r, chamfer_enabled, chamfer_s = values
+            
+            # Create a new document for the box
+            doc = App.newDocument()
+            
+            # Create the outer box
+            outer_box_part = Part.makeBox(outer_l, outer_w, outer_h)
+            
+            # Find the edges for filleting (vertical corners) and chamfering (bottom)
+            vertical_edges_to_fillet = []
+            bottom_edges_to_chamfer = []
+            
+            for edge in outer_box_part.Edges:
+                # Check for vertical edges based on their bounding box
+                # If an edge is vertical, its min and max Z coordinates will be different
+                if not App.isclose(edge.Curve.p(0).z, edge.Curve.p(1).z):
+                    vertical_edges_to_fillet.append(edge)
+                # Check for bottom edges based on their Z coordinate
+                # This assumes the box is created at (0,0,0)
+                if App.isclose(edge.Vertexes[0].Point.z, 0.0) and App.isclose(edge.Vertexes[1].Point.z, 0.0):
+                    bottom_edges_to_chamfer.append(edge)
+
+            # Apply fillet and chamfer operations if enabled
+            if fillet_enabled:
+                if vertical_edges_to_fillet:
+                    try:
+                        fillet = outer_box_part.makeFillet(fillet_r, [e for e in vertical_edges_to_fillet])
+                        outer_box_part = fillet
+                    except:
+                        App.Console.PrintError("Failed to create fillet. Radius may be too large.")
+            
+            if chamfer_enabled:
+                if bottom_edges_to_chamfer:
+                    try:
+                        # For a 30-degree chamfer, d2 = d1 / tan(30)
+                        chamfer_d2 = chamfer_s / math.tan(math.radians(30))
+                        
+                        # Use a list of tuples to define chamfer sizes per edge
+                        chamfer_edges_with_sizes = [(e, chamfer_s, chamfer_d2) for e in bottom_edges_to_chamfer]
+                        chamfer = outer_box_part.makeChamfer(chamfer_edges_with_sizes)
+                        outer_box_part = chamfer
+                    except Exception as e:
+                        App.Console.PrintError("Failed to create chamfer. Size may be too large or there was another error.")
+                        App.Console.PrintError(str(e))
+            
+            # Create a new object in the document for the modified outer box
+            outer_box_obj = doc.addObject("Part::Feature", "OuterBox")
+            outer_box_obj.Shape = outer_box_part
+            
+            # Create the inner box
+            inner_box_part = Part.makeBox(inner_l, inner_w, inner_h)
+            
+            # Position the inner box to be centered within the outer box
+            x_pos = (outer_l - inner_l) / 2
+            y_pos = (outer_w - inner_w) / 2
+            z_pos = (outer_h - inner_h) / 2
+            inner_box_part.Placement.Base = App.Vector(x_pos, y_pos, z_pos)
+            
+            # Subtract the inner box from the outer box to create the hollow shape
+            hollow_box = doc.addObject("Part::Cut", "HollowBox")
+            hollow_box.Base = outer_box_obj
+            hollow_box.Tool = doc.addObject("Part::Feature", "InnerBox")
+            hollow_box.Tool.Shape = inner_box_part
+            
+            # Recompute the document to show the result
+            doc.recompute()
+            Gui.SendMsgToActiveView("ViewFit")
+
+# Run the script when the macro is executed
+run()
+
