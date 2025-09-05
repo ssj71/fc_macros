@@ -95,7 +95,7 @@ class HollowBoxDialog(QtGui.QDialog):
 
         filletRadiusLabel = QtGui.QLabel("Fillet Radius:", self)
         self.filletRadiusEdit = QtGui.QLineEdit(self)
-        self.filletRadiusEdit.setText("5.0")
+        self.filletRadiusEdit.setText("3.0")
         optionsLayout.addWidget(filletRadiusLabel, 0, 1)
         optionsLayout.addWidget(self.filletRadiusEdit, 0, 2)
         
@@ -106,7 +106,7 @@ class HollowBoxDialog(QtGui.QDialog):
         
         chamferSizeLabel = QtGui.QLabel("Chamfer Size:", self)
         self.chamferSizeEdit = QtGui.QLineEdit(self)
-        self.chamferSizeEdit.setText("5.0")
+        self.chamferSizeEdit.setText("1.0")
         optionsLayout.addWidget(chamferSizeLabel, 1, 1)
         optionsLayout.addWidget(self.chamferSizeEdit, 1, 2)
 
@@ -172,26 +172,21 @@ def run():
             outer_l, outer_w, outer_h, inner_l, inner_w, inner_h, fillet_enabled, fillet_r, chamfer_enabled, chamfer_s = values
             
             # Create a new document for the box
-            doc = App.newDocument()
+            doc = App.ActiveDocument
             
             # Create the outer box
             outer_box_part = Part.makeBox(outer_l, outer_w, outer_h)
             
-            # Find the edges for filleting (vertical corners) and chamfering (bottom)
+            # Find the edges for filleting (vertical corners)
             vertical_edges_to_fillet = []
-            bottom_edges_to_chamfer = []
             
             for edge in outer_box_part.Edges:
                 # Check for vertical edges based on their bounding box
                 # If an edge is vertical, its min and max Z coordinates will be different
-                if not App.isclose(edge.Curve.p(0).z, edge.Curve.p(1).z):
+                if not math.isclose(edge.Vertexes[0].Point.z, edge.Vertexes[1].Point.z):
                     vertical_edges_to_fillet.append(edge)
-                # Check for bottom edges based on their Z coordinate
-                # This assumes the box is created at (0,0,0)
-                if App.isclose(edge.Vertexes[0].Point.z, 0.0) and App.isclose(edge.Vertexes[1].Point.z, 0.0):
-                    bottom_edges_to_chamfer.append(edge)
 
-            # Apply fillet and chamfer operations if enabled
+            # Apply fillet
             if fillet_enabled:
                 if vertical_edges_to_fillet:
                     try:
@@ -200,15 +195,21 @@ def run():
                     except:
                         App.Console.PrintError("Failed to create fillet. Radius may be too large.")
             
+            # now find edges of the fillet box to chamfer (bottom)
+            bottom_edges_to_chamfer = []
+            for edge in outer_box_part.Edges:
+                # Check for bottom edges based on their Z coordinate
+                # This assumes the box is created at (0,0,0)
+                if math.isclose(edge.Vertexes[0].Point.z, 0.0) and math.isclose(edge.Vertexes[1].Point.z, 0.0):
+                    bottom_edges_to_chamfer.append(edge)
+            # Apply chamfer
             if chamfer_enabled:
                 if bottom_edges_to_chamfer:
                     try:
-                        # For a 30-degree chamfer, d2 = d1 / tan(30)
-                        chamfer_d2 = chamfer_s / math.tan(math.radians(30))
+                        # 2:1 is close enough to 30 degrees for chamfering
+                        chamfer_d2 = 2*chamfer_s 
                         
-                        # Use a list of tuples to define chamfer sizes per edge
-                        chamfer_edges_with_sizes = [(e, chamfer_s, chamfer_d2) for e in bottom_edges_to_chamfer]
-                        chamfer = outer_box_part.makeChamfer(chamfer_edges_with_sizes)
+                        chamfer = outer_box_part.makeChamfer(chamfer_d2, chamfer_s, bottom_edges_to_chamfer)
                         outer_box_part = chamfer
                     except Exception as e:
                         App.Console.PrintError("Failed to create chamfer. Size may be too large or there was another error.")
@@ -224,7 +225,7 @@ def run():
             # Position the inner box to be centered within the outer box
             x_pos = (outer_l - inner_l) / 2
             y_pos = (outer_w - inner_w) / 2
-            z_pos = (outer_h - inner_h) / 2
+            z_pos = (outer_h - inner_h)
             inner_box_part.Placement.Base = App.Vector(x_pos, y_pos, z_pos)
             
             # Subtract the inner box from the outer box to create the hollow shape
