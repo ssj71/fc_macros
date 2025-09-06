@@ -7,14 +7,39 @@
 
 __title__   = "Box Maker"
 __author__  = "Gemini"
-__version__ = "1.2"
-__date__    = "2025-09-02"
+__version__ = "1.8"
+__date__    = "2025-09-05"
 
 import FreeCAD as App
 import FreeCADGui as Gui
 import Part
 import math
 from PySide import QtGui, QtCore
+
+# A data container to hold all the box parameters
+class BoxParameters:
+    def __init__(self, outer_l, outer_w, outer_h, inner_l, inner_w, inner_h,
+                 outer_sides_fillet_enabled, outer_sides_fillet_r,
+                 outer_top_fillet_enabled, outer_top_fillet_r,
+                 chamfer_enabled, chamfer_s,
+                 inner_sides_fillet_enabled, inner_bottom_fillet_enabled,
+                 inner_sides_fillet_r, inner_bottom_fillet_r):
+        self.outer_l = outer_l
+        self.outer_w = outer_w
+        self.outer_h = outer_h
+        self.inner_l = inner_l
+        self.inner_w = inner_w
+        self.inner_h = inner_h
+        self.outer_sides_fillet_enabled = outer_sides_fillet_enabled
+        self.outer_sides_fillet_r = outer_sides_fillet_r
+        self.outer_top_fillet_enabled = outer_top_fillet_enabled
+        self.outer_top_fillet_r = outer_top_fillet_r
+        self.chamfer_enabled = chamfer_enabled
+        self.chamfer_s = chamfer_s
+        self.inner_sides_fillet_enabled = inner_sides_fillet_enabled
+        self.inner_bottom_fillet_enabled = inner_bottom_fillet_enabled
+        self.inner_sides_fillet_r = inner_sides_fillet_r
+        self.inner_bottom_fillet_r = inner_bottom_fillet_r
 
 # Define the main dialog class
 class HollowBoxDialog(QtGui.QDialog):
@@ -84,37 +109,76 @@ class HollowBoxDialog(QtGui.QDialog):
         
         self.mainLayout.addWidget(innerGroupBox, 1, 0)
         
-        # --- Fillet & Chamfer Options Group Box ---
-        optionsGroupBox = QtGui.QGroupBox("Fillet & Chamfer Options", self)
-        optionsLayout = QtGui.QGridLayout(optionsGroupBox)
+        # --- Outer Fillet & Chamfer Options Group Box ---
+        outerOptionsGroupBox = QtGui.QGroupBox("Outer Fillet & Chamfer Options", self)
+        outerOptionsLayout = QtGui.QGridLayout(outerOptionsGroupBox)
 
-        # Fillet option
-        self.filletCheck = QtGui.QCheckBox("Fillet outer corners", self)
-        self.filletCheck.setChecked(True)
-        optionsLayout.addWidget(self.filletCheck, 0, 0)
+        # Fillet sides option
+        self.outerSidesFilletCheck = QtGui.QCheckBox("Fillet outer vertical corners", self)
+        self.outerSidesFilletCheck.setChecked(True)
+        outerOptionsLayout.addWidget(self.outerSidesFilletCheck, 0, 0)
 
-        filletRadiusLabel = QtGui.QLabel("Fillet Radius:", self)
-        self.filletRadiusEdit = QtGui.QLineEdit(self)
-        self.filletRadiusEdit.setText("3.0")
-        optionsLayout.addWidget(filletRadiusLabel, 0, 1)
-        optionsLayout.addWidget(self.filletRadiusEdit, 0, 2)
+        outerSidesFilletRadiusLabel = QtGui.QLabel("Side Radius:", self)
+        self.outerSidesFilletRadiusEdit = QtGui.QLineEdit(self)
+        self.outerSidesFilletRadiusEdit.setText("3.0")
+        outerOptionsLayout.addWidget(outerSidesFilletRadiusLabel, 0, 1)
+        outerOptionsLayout.addWidget(self.outerSidesFilletRadiusEdit, 0, 2)
         
+        # Fillet top option
+        self.outerTopFilletCheck = QtGui.QCheckBox("Fillet outer top edges", self)
+        self.outerTopFilletCheck.setChecked(False)
+        outerOptionsLayout.addWidget(self.outerTopFilletCheck, 1, 0)
+
+        outerTopFilletRadiusLabel = QtGui.QLabel("Top Radius:", self)
+        self.outerTopFilletRadiusEdit = QtGui.QLineEdit(self)
+        self.outerTopFilletRadiusEdit.setText("3.0")
+        outerOptionsLayout.addWidget(outerTopFilletRadiusLabel, 1, 1)
+        outerOptionsLayout.addWidget(self.outerTopFilletRadiusEdit, 1, 2)
+
         # Chamfer option
         self.chamferCheck = QtGui.QCheckBox("Chamfer bottom edge (30°)", self)
         self.chamferCheck.setChecked(True)
-        optionsLayout.addWidget(self.chamferCheck, 1, 0)
+        outerOptionsLayout.addWidget(self.chamferCheck, 2, 0)
         
         chamferSizeLabel = QtGui.QLabel("Chamfer Size:", self)
         self.chamferSizeEdit = QtGui.QLineEdit(self)
         self.chamferSizeEdit.setText("1.0")
-        optionsLayout.addWidget(chamferSizeLabel, 1, 1)
-        optionsLayout.addWidget(self.chamferSizeEdit, 1, 2)
+        outerOptionsLayout.addWidget(chamferSizeLabel, 2, 1)
+        outerOptionsLayout.addWidget(self.chamferSizeEdit, 2, 2)
 
-        self.mainLayout.addWidget(optionsGroupBox, 2, 0)
+        self.mainLayout.addWidget(outerOptionsGroupBox, 2, 0)
+        
+        # --- Inner Fillet Options Group Box ---
+        innerOptionsGroupBox = QtGui.QGroupBox("Inner Fillet Options", self)
+        innerOptionsLayout = QtGui.QGridLayout(innerOptionsGroupBox)
+
+        # Fillet inner sides
+        self.innerSidesFilletCheck = QtGui.QCheckBox("Fillet inner sides", self)
+        self.innerSidesFilletCheck.setChecked(True)
+        innerOptionsLayout.addWidget(self.innerSidesFilletCheck, 0, 0)
+
+        innerSidesFilletRadiusLabel = QtGui.QLabel("Side Radius:", self)
+        self.innerSidesFilletRadiusEdit = QtGui.QLineEdit(self)
+        self.innerSidesFilletRadiusEdit.setText("2.0")
+        innerOptionsLayout.addWidget(innerSidesFilletRadiusLabel, 0, 1)
+        innerOptionsLayout.addWidget(self.innerSidesFilletRadiusEdit, 0, 2)
+
+        # Fillet inner bottom edges
+        self.innerBottomFilletCheck = QtGui.QCheckBox("Fillet inner bottom edges", self)
+        self.innerBottomFilletCheck.setChecked(True)
+        innerOptionsLayout.addWidget(self.innerBottomFilletCheck, 1, 0)
+        
+        innerBottomFilletRadiusLabel = QtGui.QLabel("Bottom Radius:", self)
+        self.innerBottomFilletRadiusEdit = QtGui.QLineEdit(self)
+        self.innerBottomFilletRadiusEdit.setText("2.0")
+        innerOptionsLayout.addWidget(innerBottomFilletRadiusLabel, 1, 1)
+        innerOptionsLayout.addWidget(self.innerBottomFilletRadiusEdit, 1, 2)
+
+        self.mainLayout.addWidget(innerOptionsGroupBox, 3, 0)
         
         # --- Buttons ---
         buttonBox = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel, self)
-        self.mainLayout.addWidget(buttonBox, 3, 0)
+        self.mainLayout.addWidget(buttonBox, 4, 0)
         buttonBox.accepted.connect(self.accept)
         buttonBox.rejected.connect(self.reject)
         
@@ -128,16 +192,28 @@ class HollowBoxDialog(QtGui.QDialog):
             inner_w = float(self.innerWidthEdit.text())
             inner_h = float(self.innerHeightEdit.text())
             
-            fillet_enabled = self.filletCheck.isChecked()
+            outer_sides_fillet_enabled = self.outerSidesFilletCheck.isChecked()
+            outer_top_fillet_enabled = self.outerTopFilletCheck.isChecked()
             chamfer_enabled = self.chamferCheck.isChecked()
+            inner_sides_fillet_enabled = self.innerSidesFilletCheck.isChecked()
+            inner_bottom_fillet_enabled = self.innerBottomFilletCheck.isChecked()
             
-            fillet_r = 0.0
+            outer_sides_fillet_r = 0.0
+            outer_top_fillet_r = 0.0
             chamfer_s = 0.0
+            inner_sides_fillet_r = 0.0
+            inner_bottom_fillet_r = 0.0
 
-            if fillet_enabled:
-                fillet_r = float(self.filletRadiusEdit.text())
+            if outer_sides_fillet_enabled:
+                outer_sides_fillet_r = float(self.outerSidesFilletRadiusEdit.text())
+            if outer_top_fillet_enabled:
+                outer_top_fillet_r = float(self.outerTopFilletRadiusEdit.text())
             if chamfer_enabled:
                 chamfer_s = float(self.chamferSizeEdit.text())
+            if inner_sides_fillet_enabled:
+                inner_sides_fillet_r = float(self.innerSidesFilletRadiusEdit.text())
+            if inner_bottom_fillet_enabled:
+                inner_bottom_fillet_r = float(self.innerBottomFilletRadiusEdit.text())
 
             # Basic input validation
             if outer_l <= 0 or outer_w <= 0 or outer_h <= 0 or inner_l <= 0 or inner_w <= 0 or inner_h <= 0:
@@ -148,18 +224,98 @@ class HollowBoxDialog(QtGui.QDialog):
                 QtGui.QMessageBox.critical(self, "Input Error", "Inner dimensions must be smaller than outer dimensions.")
                 return None
             
-            if fillet_enabled and fillet_r <= 0:
-                QtGui.QMessageBox.critical(self, "Input Error", "Fillet radius must be greater than zero.")
+            if outer_sides_fillet_enabled and outer_sides_fillet_r <= 0:
+                QtGui.QMessageBox.critical(self, "Input Error", "Outer sides fillet radius must be greater than zero.")
+                return None
+            
+            if outer_top_fillet_enabled and outer_top_fillet_r <= 0:
+                QtGui.QMessageBox.critical(self, "Input Error", "Outer top fillet radius must be greater than zero.")
                 return None
             
             if chamfer_enabled and chamfer_s <= 0:
                 QtGui.QMessageBox.critical(self, "Input Error", "Chamfer size must be greater than zero.")
                 return None
             
-            return outer_l, outer_w, outer_h, inner_l, inner_w, inner_h, fillet_enabled, fillet_r, chamfer_enabled, chamfer_s
+            if inner_sides_fillet_enabled and inner_sides_fillet_r <= 0:
+                QtGui.QMessageBox.critical(self, "Input Error", "Inner sides fillet radius must be greater than zero.")
+                return None
+            
+            if inner_bottom_fillet_enabled and inner_bottom_fillet_r <= 0:
+                QtGui.QMessageBox.critical(self, "Input Error", "Inner bottom fillet radius must be greater than zero.")
+                return None
+            
+            return BoxParameters(outer_l, outer_w, outer_h, inner_l, inner_w, inner_h,
+                                 outer_sides_fillet_enabled, outer_sides_fillet_r,
+                                 outer_top_fillet_enabled, outer_top_fillet_r,
+                                 chamfer_enabled, chamfer_s,
+                                 inner_sides_fillet_enabled, inner_bottom_fillet_enabled,
+                                 inner_sides_fillet_r, inner_bottom_fillet_r)
         except ValueError:
             QtGui.QMessageBox.critical(self, "Input Error", "Please enter valid numbers for all dimensions.")
             return None
+
+def fillet_edges(box, radius, edge_type):
+    """
+    Applies a fillet to a list of edges on a given Part.Shape based on a type.
+    
+    Args:
+        box (Part.Shape): The Part.Shape to modify.
+        radius (float): The fillet radius.
+        edge_type (str): The type of edges to fillet ("sides", "bottom", or "top").
+    
+    Returns:
+        Part.Shape: The new shape after the fillet operation, or the original
+                    shape if the operation fails.
+    """
+    edges_to_fillet = []
+    if edge_type == "sides":
+        for edge in box.Edges:
+            if not math.isclose(edge.Vertexes[0].Point.z, edge.Vertexes[1].Point.z):
+                edges_to_fillet.append(edge)
+    elif edge_type == "bottom":
+        for edge in box.Edges:
+            if math.isclose(edge.Vertexes[0].Point.z, 0.0) and math.isclose(edge.Vertexes[1].Point.z, 0.0):
+                edges_to_fillet.append(edge)
+    elif edge_type == "top":
+        z_max = box.BoundBox.ZMax
+        for edge in box.Edges:
+            if math.isclose(edge.Vertexes[0].Point.z, z_max) and math.isclose(edge.Vertexes[1].Point.z, z_max):
+                edges_to_fillet.append(edge)
+    
+    if not edges_to_fillet:
+        return box
+    try:
+        filleted_box = box.makeFillet(radius, edges_to_fillet)
+        return filleted_box
+    except:
+        App.Console.PrintError(f"Failed to create {edge_type} fillet. Radius may be too large.")
+        return box
+
+def chamfer_bottom(box, size):
+    """
+    Applies a 30-degree chamfer to the bottom of a Part.Shape.
+    
+    Args:
+        box (Part.Shape): The Part.Shape to modify.
+        size (float): The horizontal size of the chamfer.
+    
+    Returns:
+        Part.Shape: The new shape after the chamfer operation, or the original
+                    shape if the operation fails.
+    """
+    edges_to_chamfer = []
+    for edge in box.Edges:
+            if math.isclose(edge.Vertexes[0].Point.z, 0.0) and math.isclose(edge.Vertexes[1].Point.z, 0.0):
+                edges_to_chamfer.append(edge)
+    try:
+        # For a 30-degree chamfer, d2 = d1 / tan(30)
+        chamfer_d2 = size / math.tan(math.radians(30))
+        chamfered_box = box.makeChamfer(chamfer_d2, size, edges_to_chamfer)
+        return chamfered_box
+    except Exception as e:
+        App.Console.PrintError("Failed to create chamfer. Size may be too large or there was another error.")
+        App.Console.PrintError(str(e))
+        return box
 
 def run():
     # Create an instance of the dialog
@@ -167,65 +323,43 @@ def run():
     
     # Show the dialog and check if the user clicked OK
     if dialog.exec_():
-        values = dialog.getValues()
-        if values:
-            outer_l, outer_w, outer_h, inner_l, inner_w, inner_h, fillet_enabled, fillet_r, chamfer_enabled, chamfer_s = values
-            
-            # Create a new document for the box
+        params = dialog.getValues()
+        if params:
+            # use the current document for the box
             doc = App.ActiveDocument
             
             # Create the outer box
-            outer_box_part = Part.makeBox(outer_l, outer_w, outer_h)
+            outer_box_part = Part.makeBox(params.outer_l, params.outer_w, params.outer_h)
             
-            # Find the edges for filleting (vertical corners)
-            vertical_edges_to_fillet = []
-            
-            for edge in outer_box_part.Edges:
-                # Check for vertical edges based on their bounding box
-                # If an edge is vertical, its min and max Z coordinates will be different
-                if not math.isclose(edge.Vertexes[0].Point.z, edge.Vertexes[1].Point.z):
-                    vertical_edges_to_fillet.append(edge)
+            # Apply fillet and chamfer operations if enabled
+            if params.chamfer_enabled:
+                outer_box_part = chamfer_bottom(outer_box_part, params.chamfer_s)
 
-            # Apply fillet
-            if fillet_enabled:
-                if vertical_edges_to_fillet:
-                    try:
-                        fillet = outer_box_part.makeFillet(fillet_r, [e for e in vertical_edges_to_fillet])
-                        outer_box_part = fillet
-                    except:
-                        App.Console.PrintError("Failed to create fillet. Radius may be too large.")
+            if params.outer_sides_fillet_enabled:
+                outer_box_part = fillet_edges(outer_box_part, params.outer_sides_fillet_r, "sides")
             
-            # now find edges of the fillet box to chamfer (bottom)
-            bottom_edges_to_chamfer = []
-            for edge in outer_box_part.Edges:
-                # Check for bottom edges based on their Z coordinate
-                # This assumes the box is created at (0,0,0)
-                if math.isclose(edge.Vertexes[0].Point.z, 0.0) and math.isclose(edge.Vertexes[1].Point.z, 0.0):
-                    bottom_edges_to_chamfer.append(edge)
-            # Apply chamfer
-            if chamfer_enabled:
-                if bottom_edges_to_chamfer:
-                    try:
-                        # 2:1 is close enough to 30 degrees for chamfering
-                        chamfer_d2 = 2*chamfer_s 
-                        
-                        chamfer = outer_box_part.makeChamfer(chamfer_d2, chamfer_s, bottom_edges_to_chamfer)
-                        outer_box_part = chamfer
-                    except Exception as e:
-                        App.Console.PrintError("Failed to create chamfer. Size may be too large or there was another error.")
-                        App.Console.PrintError(str(e))
+            if params.outer_top_fillet_enabled:
+                outer_box_part = fillet_edges(outer_box_part, params.outer_top_fillet_r, "top")
+            
             
             # Create a new object in the document for the modified outer box
             outer_box_obj = doc.addObject("Part::Feature", "OuterBox")
             outer_box_obj.Shape = outer_box_part
             
             # Create the inner box
-            inner_box_part = Part.makeBox(inner_l, inner_w, inner_h)
+            inner_box_part = Part.makeBox(params.inner_l, params.inner_w, params.inner_h)
+
+            # Find and fillet inner edges if enabled
+            if params.inner_sides_fillet_enabled:
+                inner_box_part = fillet_edges(inner_box_part, params.inner_sides_fillet_r, "sides")
             
+            if params.inner_bottom_fillet_enabled:
+                inner_box_part = fillet_edges(inner_box_part, params.inner_bottom_fillet_r, "bottom")
+
             # Position the inner box to be centered within the outer box
-            x_pos = (outer_l - inner_l) / 2
-            y_pos = (outer_w - inner_w) / 2
-            z_pos = (outer_h - inner_h)
+            x_pos = (params.outer_l - params.inner_l) / 2
+            y_pos = (params.outer_w - params.inner_w) / 2
+            z_pos = (params.outer_h - params.inner_h)
             inner_box_part.Placement.Base = App.Vector(x_pos, y_pos, z_pos)
             
             # Subtract the inner box from the outer box to create the hollow shape
