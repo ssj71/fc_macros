@@ -7,14 +7,16 @@
 
 __title__   = "Box Maker"
 __author__  = "Gemini"
-__version__ = "1.8"
-__date__    = "2025-09-05"
+__version__ = "2.0"
+__date__    = "2025-09-06"
 
 import FreeCAD as App
 import FreeCADGui as Gui
 import Part
 import math
 from PySide import QtGui, QtCore
+
+RIM_WIDTH = 1.0  # Width of the rim that holds the lid in place
 
 # A data container to hold all the box parameters
 class BoxParameters:
@@ -23,7 +25,8 @@ class BoxParameters:
                  outer_top_fillet_enabled, outer_top_fillet_r,
                  chamfer_enabled, chamfer_s,
                  inner_sides_fillet_enabled, inner_bottom_fillet_enabled,
-                 inner_sides_fillet_r, inner_bottom_fillet_r):
+                 inner_sides_fillet_r, inner_bottom_fillet_r,
+                 lid_enabled, clearance, lid_thickness):
         self.outer_l = outer_l
         self.outer_w = outer_w
         self.outer_h = outer_h
@@ -40,6 +43,9 @@ class BoxParameters:
         self.inner_bottom_fillet_enabled = inner_bottom_fillet_enabled
         self.inner_sides_fillet_r = inner_sides_fillet_r
         self.inner_bottom_fillet_r = inner_bottom_fillet_r
+        self.lid_enabled = lid_enabled
+        self.clearance = clearance
+        self.lid_thickness = lid_thickness
 
 # Define the main dialog class
 class HollowBoxDialog(QtGui.QDialog):
@@ -176,9 +182,31 @@ class HollowBoxDialog(QtGui.QDialog):
 
         self.mainLayout.addWidget(innerOptionsGroupBox, 3, 0)
         
+        # --- Lid Options Group Box ---
+        lidOptionsGroupBox = QtGui.QGroupBox("Lid Options", self)
+        lidOptionsLayout = QtGui.QGridLayout(lidOptionsGroupBox)
+        
+        self.lidCheck = QtGui.QCheckBox("Create a lid", self)
+        self.lidCheck.setChecked(True)
+        lidOptionsLayout.addWidget(self.lidCheck, 0, 0)
+        
+        lidThicknessLabel = QtGui.QLabel("Lid Thickness:", self)
+        self.lidThicknessEdit = QtGui.QLineEdit(self)
+        self.lidThicknessEdit.setText("2.0")
+        lidOptionsLayout.addWidget(lidThicknessLabel, 1, 0)
+        lidOptionsLayout.addWidget(self.lidThicknessEdit, 1, 1)
+        
+        clearanceLabel = QtGui.QLabel("Clearance:", self)
+        self.clearanceEdit = QtGui.QLineEdit(self)
+        self.clearanceEdit.setText("0.1")
+        lidOptionsLayout.addWidget(clearanceLabel, 2, 0)
+        lidOptionsLayout.addWidget(self.clearanceEdit, 2, 1)
+        
+        self.mainLayout.addWidget(lidOptionsGroupBox, 4, 0)
+        
         # --- Buttons ---
         buttonBox = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel, self)
-        self.mainLayout.addWidget(buttonBox, 4, 0)
+        self.mainLayout.addWidget(buttonBox, 5, 0)
         buttonBox.accepted.connect(self.accept)
         buttonBox.rejected.connect(self.reject)
         
@@ -197,12 +225,15 @@ class HollowBoxDialog(QtGui.QDialog):
             chamfer_enabled = self.chamferCheck.isChecked()
             inner_sides_fillet_enabled = self.innerSidesFilletCheck.isChecked()
             inner_bottom_fillet_enabled = self.innerBottomFilletCheck.isChecked()
+            lid_enabled = self.lidCheck.isChecked()
             
             outer_sides_fillet_r = 0.0
             outer_top_fillet_r = 0.0
             chamfer_s = 0.0
             inner_sides_fillet_r = 0.0
             inner_bottom_fillet_r = 0.0
+            clearance = 0.0
+            lid_thickness = 0.0
 
             if outer_sides_fillet_enabled:
                 outer_sides_fillet_r = float(self.outerSidesFilletRadiusEdit.text())
@@ -214,6 +245,9 @@ class HollowBoxDialog(QtGui.QDialog):
                 inner_sides_fillet_r = float(self.innerSidesFilletRadiusEdit.text())
             if inner_bottom_fillet_enabled:
                 inner_bottom_fillet_r = float(self.innerBottomFilletRadiusEdit.text())
+            if lid_enabled:
+                clearance = float(self.clearanceEdit.text())
+                lid_thickness = float(self.lidThicknessEdit.text())
 
             # Basic input validation
             if outer_l <= 0 or outer_w <= 0 or outer_h <= 0 or inner_l <= 0 or inner_w <= 0 or inner_h <= 0:
@@ -244,12 +278,17 @@ class HollowBoxDialog(QtGui.QDialog):
                 QtGui.QMessageBox.critical(self, "Input Error", "Inner bottom fillet radius must be greater than zero.")
                 return None
             
+            if lid_enabled and (clearance <= 0 or lid_thickness <= 0):
+                QtGui.QMessageBox.critical(self, "Input Error", "Lid clearance and thickness must be greater than zero.")
+                return None
+
             return BoxParameters(outer_l, outer_w, outer_h, inner_l, inner_w, inner_h,
                                  outer_sides_fillet_enabled, outer_sides_fillet_r,
                                  outer_top_fillet_enabled, outer_top_fillet_r,
                                  chamfer_enabled, chamfer_s,
                                  inner_sides_fillet_enabled, inner_bottom_fillet_enabled,
-                                 inner_sides_fillet_r, inner_bottom_fillet_r)
+                                 inner_sides_fillet_r, inner_bottom_fillet_r,
+                                 lid_enabled, clearance, lid_thickness)
         except ValueError:
             QtGui.QMessageBox.critical(self, "Input Error", "Please enter valid numbers for all dimensions.")
             return None
@@ -310,12 +349,48 @@ def chamfer_bottom(box, size):
     try:
         # For a 30-degree chamfer, d2 = d1 / tan(30)
         chamfer_d2 = size / math.tan(math.radians(30))
-        chamfered_box = box.makeChamfer(chamfer_d2, size, edges_to_chamfer)
+        chamfered_box = box.makeChamfer(size, chamfer_d2, edges_to_chamfer)
         return chamfered_box
     except Exception as e:
         App.Console.PrintError("Failed to create chamfer. Size may be too large or there was another error.")
         App.Console.PrintError(str(e))
         return box
+
+def create_lid(params, tool=False):
+    """
+    Creates a lid for the hollow box with a beveled base for a secure fit.
+    
+    Args:
+        params (BoxParameters): The parameters from the dialog.
+        tool (Boolean): Whether to size the lid as a cutting tool.
+    """
+    # Create the main body of the lid
+    #currently the rim that holds the lid in place is 1mm wide
+    lid_l = params.outer_l - 1*RIM_WIDTH
+    lid_w = params.outer_w - 2*RIM_WIDTH
+    lid_h = params.lid_thickness
+    if not tool:
+        lid_l -= 2 * params.clearance
+        lid_w -= 2 * params.clearance
+    
+    lid_body = Part.makeBox(lid_l, lid_w, lid_h)
+
+    # Chamfer the top edges to create the beveled edge
+    chamfer_d1 = params.lid_thickness - .01
+    chamfer_d2 = chamfer_d1 / math.sqrt(3)
+    
+    bevel_edges_to_chamfer = []
+    for edge in lid_body.Edges:
+        if math.isclose(edge.Vertexes[0].Point.z, params.lid_thickness) and math.isclose(edge.Vertexes[1].Point.z, params.lid_thickness):
+            bevel_edges_to_chamfer.append(edge)
+    try:
+        chamfered_bevel = lid_body.makeChamfer(chamfer_d1, chamfer_d2, bevel_edges_to_chamfer[1:])
+    except Exception as e:
+        App.Console.PrintError("Failed to create chamfered bevel on the lid. Clearance may be too large.")
+        print(str(e))
+        return
+
+    return chamfered_bevel
 
 def run():
     # Create an instance of the dialog
@@ -360,6 +435,8 @@ def run():
             x_pos = (params.outer_l - params.inner_l) / 2
             y_pos = (params.outer_w - params.inner_w) / 2
             z_pos = (params.outer_h - params.inner_h)
+            if params.lid_enabled:
+                z_pos -= params.lid_thickness
             inner_box_part.Placement.Base = App.Vector(x_pos, y_pos, z_pos)
             
             # Subtract the inner box from the outer box to create the hollow shape
@@ -367,6 +444,21 @@ def run():
             hollow_box.Base = outer_box_obj
             hollow_box.Tool = doc.addObject("Part::Feature", "InnerBox")
             hollow_box.Tool.Shape = inner_box_part
+            
+            if params.lid_enabled:
+                lid = create_lid(params)
+                if lid is not None:
+                    lid_obj = doc.addObject("Part::Feature", "Lid")
+                    lid_obj.Shape = lid
+                    lid_obj.Placement.Base = App.Vector(0, params.outer_w + 2, 0)
+                cutter = create_lid(params, tool=True)
+                if cutter is not None:
+                    cut_obj = doc.addObject("Part::Feature", "LidCut")
+                    cut_obj.Shape = cutter
+                    cut_obj.Placement.Base = App.Vector(0, RIM_WIDTH, params.outer_h - 2)
+                    hollow_box_wlid = doc.addObject("Part::Cut", "HollowBoxWLid")
+                    hollow_box_wlid.Base = hollow_box
+                    hollow_box_wlid.Tool = cut_obj
             
             # Recompute the document to show the result
             doc.recompute()
