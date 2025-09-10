@@ -66,21 +66,21 @@ class HollowBoxDialog(QtGui.QDialog):
         # Outer Length
         outerLengthLabel = QtGui.QLabel("Length:", self)
         self.outerLengthEdit = QtGui.QLineEdit(self)
-        self.outerLengthEdit.setText("100.0")
+        self.outerLengthEdit.setText("95.0")
         outerLayout.addWidget(outerLengthLabel, 0, 0)
         outerLayout.addWidget(self.outerLengthEdit, 0, 1)
         
         # Outer Width
         outerWidthLabel = QtGui.QLabel("Width:", self)
         self.outerWidthEdit = QtGui.QLineEdit(self)
-        self.outerWidthEdit.setText("50.0")
+        self.outerWidthEdit.setText("68.5")
         outerLayout.addWidget(outerWidthLabel, 1, 0)
         outerLayout.addWidget(self.outerWidthEdit, 1, 1)
         
         # Outer Height
         outerHeightLabel = QtGui.QLabel("Height:", self)
         self.outerHeightEdit = QtGui.QLineEdit(self)
-        self.outerHeightEdit.setText("50.0")
+        self.outerHeightEdit.setText("34.0")
         outerLayout.addWidget(outerHeightLabel, 2, 0)
         outerLayout.addWidget(self.outerHeightEdit, 2, 1)
         
@@ -93,14 +93,14 @@ class HollowBoxDialog(QtGui.QDialog):
         # Inner Length
         innerLengthLabel = QtGui.QLabel("Length:", self)
         self.innerLengthEdit = QtGui.QLineEdit(self)
-        self.innerLengthEdit.setText("80.0")
+        self.innerLengthEdit.setText("91.0")
         innerLayout.addWidget(innerLengthLabel, 0, 0)
         innerLayout.addWidget(self.innerLengthEdit, 0, 1)
         
         # Inner Width
         innerWidthLabel = QtGui.QLabel("Width:", self)
         self.innerWidthEdit = QtGui.QLineEdit(self)
-        self.innerWidthEdit.setText("40.0")
+        self.innerWidthEdit.setText("64.5")
         innerLayout.addWidget(innerWidthLabel, 1, 0)
         innerWidthLabel.setToolTip("Must be less than Outer Width")
         innerLayout.addWidget(self.innerWidthEdit, 1, 1)
@@ -108,7 +108,7 @@ class HollowBoxDialog(QtGui.QDialog):
         # Inner Height
         innerHeightLabel = QtGui.QLabel("Height:", self)
         self.innerHeightEdit = QtGui.QLineEdit(self)
-        self.innerHeightEdit.setText("40.0")
+        self.innerHeightEdit.setText("30.0")
         innerLayout.addWidget(innerHeightLabel, 2, 0)
         innerHeightLabel.setToolTip("Must be less than Outer Height")
         innerLayout.addWidget(self.innerHeightEdit, 2, 1)
@@ -137,7 +137,7 @@ class HollowBoxDialog(QtGui.QDialog):
 
         outerTopFilletRadiusLabel = QtGui.QLabel("Top Radius:", self)
         self.outerTopFilletRadiusEdit = QtGui.QLineEdit(self)
-        self.outerTopFilletRadiusEdit.setText("3.0")
+        self.outerTopFilletRadiusEdit.setText("1.0")
         outerOptionsLayout.addWidget(outerTopFilletRadiusLabel, 1, 1)
         outerOptionsLayout.addWidget(self.outerTopFilletRadiusEdit, 1, 2)
 
