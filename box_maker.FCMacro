@@ -400,7 +400,7 @@ def chamfer_bottom(box, size):
     try:
         # For a 30-degree chamfer, d2 = d1 / tan(30)
         chamfer_d2 = size / math.tan(math.radians(30))
-        chamfered_box = box.makeChamfer(size, chamfer_d2, edges_to_chamfer)
+        chamfered_box = box.makeChamfer(chamfer_d2, size, edges_to_chamfer)
         return chamfered_box
     except Exception as e:
         App.Console.PrintError("Failed to create chamfer. Size may be too large or there was another error.")
