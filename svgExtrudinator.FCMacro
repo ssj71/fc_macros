@@ -45,7 +45,8 @@ def import_and_extrude_svg():
     doc.recompute()
 
     # --- Extrude the sketch ---
-    extrude = doc.addObject("Part::Extrusion", "Extrude")
+    name = svg_file.split("/")[-1].split(".")[0]
+    extrude = doc.addObject("Part::Extrusion", name)
     extrude.Base = sketch
     extrude.DirMode = "Normal"
     extrude.LengthFwd = length
