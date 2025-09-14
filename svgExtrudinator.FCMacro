@@ -1,0 +1,64 @@
+import FreeCAD, FreeCADGui
+from PySide import QtGui
+import importSVG
+import Draft
+
+def import_and_extrude_svg():
+    # --- File selector ---
+    file_dialog = QtGui.QFileDialog()
+    file_dialog.setNameFilter("SVG files (*.svg)")
+    file_dialog.setFileMode(QtGui.QFileDialog.ExistingFile)
+    if not file_dialog.exec_():
+        return
+    svg_file = file_dialog.selectedFiles()[0]
+
+    # --- Length input ---
+    length, ok = QtGui.QInputDialog.getDouble(
+        None, "Extrusion Length", "Enter extrusion length:", 10.0, 0.1, 1000.0, 2
+    )
+    if not ok:
+        return
+
+    # --- Ensure we have a document ---
+    doc = FreeCAD.ActiveDocument
+    if doc is None:
+        doc = FreeCAD.newDocument()
+
+    # --- Import SVG using Draft importer ---
+    importSVG.insert(svg_file, doc.Name)
+
+    # Collect all imported objects
+    imported_objs = [o for o in doc.Objects if o.TypeId.startswith("Part::Feature")]
+
+    if not imported_objs:
+        QtGui.QMessageBox.warning(None, "Error", "No paths were imported from the SVG.")
+        return
+
+    # --- Convert to a single sketch ---
+    sketch = Draft.makeSketch(imported_objs, autoconstraints=True)
+    doc.recompute()
+
+    # --- Delete original imported paths ---
+    for obj in imported_objs:
+        doc.removeObject(obj.Name)
+
+    doc.recompute()
+
+    # --- Extrude the sketch ---
+    extrude = doc.addObject("Part::Extrusion", "Extrude")
+    extrude.Base = sketch
+    extrude.DirMode = "Normal"
+    extrude.LengthFwd = length
+    extrude.LengthRev = 0.0
+    extrude.Solid = True
+    extrude.Reversed = False
+    extrude.Symmetric = False
+
+    doc.recompute()
+
+    FreeCADGui.ActiveDocument.ActiveView.fitAll()
+    QtGui.QMessageBox.information(None, "Success", "SVG imported and extruded!")
+
+# Run macro
+import_and_extrude_svg()
+
