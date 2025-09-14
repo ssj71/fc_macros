@@ -7,7 +7,7 @@
 
 __title__   = "Box Maker"
 __author__  = "ssj71"
-__version__ = "2.2"
+__version__ = "2.3"
 __date__    = "2025-09-10"
 
 import FreeCAD as App
@@ -15,8 +15,6 @@ import FreeCADGui as Gui
 import Part
 import math
 from PySide import QtGui, QtCore
-
-RIM_WIDTH = 1.0  # Width of the rim that holds the lid in place
 
 # A data container to hold all the box parameters
 class BoxParameters:
@@ -417,8 +415,8 @@ def create_lid(params, tool=False):
     """
     # Create the main body of the lid
     #currently the rim that holds the lid in place is 1mm wide
-    lid_l = params.outer_l - 1*RIM_WIDTH
-    lid_w = params.outer_w - 2*RIM_WIDTH
+    lid_l = params.outer_l - 1*params.lid_thickness
+    lid_w = params.outer_w - 2*params.lid_thickness
     lid_h = params.lid_thickness
     if not tool:
         lid_l -= 2 * params.clearance
@@ -559,7 +557,7 @@ def run():
                 if cutter is not None:
                     cut_obj = doc.addObject("Part::Feature", "LidCut")
                     cut_obj.Shape = cutter
-                    cut_obj.Placement.Base = App.Vector(0, RIM_WIDTH, params.outer_h - 2)
+                    cut_obj.Placement.Base = App.Vector(0, params.lid_thickness, params.outer_h - params.lid_thickness)
                     hollow_box_w_lid = doc.addObject("Part::Cut", "HollowBoxWLid")
                     hollow_box_w_lid.Base = hollow_box
                     hollow_box_w_lid.Tool = cut_obj
